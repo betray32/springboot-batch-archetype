@@ -1,0 +1,16 @@
+# YML Spring - Scheduling
+VersionBatch : 1.0.0
+Thread_Pool_Size : 1
+Block_Size : 100
+Process_Name : SpringBatch_Arquetipo
+EsquemaBaseDatosLOG: [ESQUEMA]
+
+Procedures:
+  ObtieneMaestro: [PROCEDURE]
+  ObtieneParametrosBatch : [PROCEDURE]
+  CambiarEstado: [PROCEDURE]
+  InsertarLog: [PROCEDURE]
+  
+Endpoints:
+  EnviarNotificacion: [ENDPOINT]
+  

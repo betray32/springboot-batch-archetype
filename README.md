@@ -1,2 +1,8 @@
-# springboot-batch-archetype
-arquetipo de desarrollo para spring batch
+# ArquetipoBatchJava
+
+Aplicacion usada para testear funciones de Spring Batch
+
+Tecnologías usadas
+- Spring Boot
+- Spring Batch
+- Hibernate
