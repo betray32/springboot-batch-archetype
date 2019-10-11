@@ -30,7 +30,7 @@ public class StepExecuteNotification {
 	 * @return
 	 */
 	public ItemReader<ListadoMaestroNotificaciones> readerNotification() {
-		return reader.read();
+		return reader;
 	}
 
 	/**

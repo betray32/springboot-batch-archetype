@@ -4,7 +4,12 @@ import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.springframework.batch.item.ExecutionContext;
+import org.springframework.batch.item.ItemStreamException;
 import org.springframework.batch.item.ItemStreamReader;
+import org.springframework.batch.item.NonTransientResourceException;
+import org.springframework.batch.item.ParseException;
+import org.springframework.batch.item.UnexpectedInputException;
 import org.springframework.batch.item.database.StoredProcedureItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,7 +31,12 @@ import oracle.jdbc.OracleTypes;
  *
  */
 @Repository
-public class ReaderNotification {
+public class ReaderNotification implements ItemStreamReader<ListadoMaestroNotificaciones> {
+
+	/**
+	 * Lista de salida
+	 */
+	private StoredProcedureItemReader<ListadoMaestroNotificaciones> itemReader;
 
 	/**
 	 * Mensajes
@@ -54,38 +64,32 @@ public class ReaderNotification {
 	private OracleProcedures dao;
 
 	/**
-	 * Lee los registros que contengan el estado indicado
-	 * 
-	 * @return
+	 * Inicializacion
 	 */
-	public ItemStreamReader<ListadoMaestroNotificaciones> read() {
+	public ReaderNotification() {
 
 		try {
 
 			log.info("[READ] Executing...");
 
-			StoredProcedureItemReader<ListadoMaestroNotificaciones> reader = new StoredProcedureItemReader<ListadoMaestroNotificaciones>();
+			itemReader = new StoredProcedureItemReader<ListadoMaestroNotificaciones>();
 
 			String logMetadataReader = 
 					"Detalle del datasource conectado" 
-					+ " - Schema: "
-					+ dataSource.getConnection().getSchema() 
+					+ " - Schema: " + dataSource.getConnection().getSchema() 
 					+ " - Catalog: " + dataSource.getConnection().getCatalog()
-					+ " - NetworkTimeOut: " 
-					+ dataSource.getConnection().getNetworkTimeout()
-					+ " - TransactionIsolation: " 
-					+ dataSource.getConnection().getTransactionIsolation();
+					+ " - NetworkTimeOut: " + dataSource.getConnection().getNetworkTimeout()
+					+ " - TransactionIsolation: " + dataSource.getConnection().getTransactionIsolation();
 
 			log.info(logMetadataReader);
 
-			reader.setDataSource(dataSource);
-
-			// Procedure
-			reader.setProcedureName(properties.getProcedures().getObtieneMaestro());
+			// Procedure y ds
+			itemReader.setDataSource(dataSource);
+			itemReader.setProcedureName(properties.getProcedures().getObtieneMaestro());
 			SqlParameter[] parameters = 
 				{ 
 					new SqlParameter("P_ESTADO", OracleTypes.NUMBER),
-					new SqlParameter("OUT_ESTADO", OracleTypes.CURSOR) 
+					new SqlParameter("OUT_ESTADO", OracleTypes.CURSOR)
 				};
 
 			/*
@@ -93,35 +97,59 @@ public class ReaderNotification {
 			 * necesito para procesarlo como un objeto y le indico en que posicion esta el
 			 * cursor
 			 */
-			reader.setParameters(parameters);
-			reader.setRowMapper(new ReaderMaestroOutputMapper());
-			reader.setRefCursorPosition(2);
+			itemReader.setParameters(parameters);
+			itemReader.setRowMapper(new ReaderMaestroOutputMapper());
+			itemReader.setRefCursorPosition(2);
 
 			// Setear parametros
 			int estadoInicialNotificaciones = Integer.parseInt(bean.getEstadoInicialLectura());
-			String logEstadoInicial = "En el parametro de entrada, posicion 1: [P_ESTADO] se asignara el campo: " + estadoInicialNotificaciones;
-			log.info(logEstadoInicial);
-
-			reader.setPreparedStatementSetter(new ReaderMaestroInputMapper(estadoInicialNotificaciones));
+			log.info("En el parametro de entrada, posicion 1: [P_ESTADO] se asignara el campo: " + estadoInicialNotificaciones);
+			
+			itemReader.setPreparedStatementSetter(new ReaderMaestroInputMapper(estadoInicialNotificaciones));
 
 			/*
 			 * Permite ejecutar el StoredProcedureItemReader
 			 */
 			log.info("Ejecutando Reader...");
-			reader.afterPropertiesSet();
-			log.info("SQL EJECUTADO: " + reader.getSql());
+			itemReader.afterPropertiesSet();
+			log.info("SQL EJECUTADO: " + itemReader.getSql());
 
 			log.info(BLOQUE_DE_LECTURA_OK);
-
-			return reader;
 
 		} catch (Exception e) {
 			dao.insertaLogProceso(ERROR_READER_BLOQUE + e.getMessage(), 101);
 			log.error(ERROR_READER_BLOQUE);
 		}
 
-		return null;
-
 	}
+
+	/**
+	 * Leer
+	 */
+	@Override
+	public ListadoMaestroNotificaciones read() throws Exception, UnexpectedInputException, ParseException, NonTransientResourceException {
+
+		return itemReader.read();
+	}
+
+	/********************************************
+	 * Operaciones comunes de concurrencia
+	 */
+	@Override
+	public void open(ExecutionContext executionContext) throws ItemStreamException {
+		itemReader.open(executionContext);
+	}
+
+	@Override
+	public void update(ExecutionContext executionContext) throws ItemStreamException {
+		itemReader.update(executionContext);
+	}
+
+	@Override
+	public void close() throws ItemStreamException {
+		itemReader.close();
+	}
+
+	/********************************************/
 
 }
